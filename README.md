@@ -99,3 +99,25 @@ somente características declaradas em `mandatory_requirements`. Consultas prese
 ```
 
 A resposta mantém sempre o contrato `{ "queries": [...] }`.
+
+## Normalização de atributos
+
+`POST /api/attribute-mappings` relaciona os campos recebidos ao schema mestre. O mapeamento
+considera nomes equivalentes (ignorando caixa, acentos e separadores) e os sinônimos informados,
+sem alterar valores numéricos nem converter unidades:
+
+```json
+{
+  "attributes": { "Memória RAM": 16, "peso_kg": 1.5 },
+  "schema": {
+    "properties": {
+      "memoria_ram": { "type": "number" },
+      "weight": { "type": "number" }
+    }
+  },
+  "known_synonyms": { "weight": ["peso", "peso_kg"] }
+}
+```
+
+A resposta contém somente os campos mapeados, com sua confiança, e a lista de campos sem
+correspondência no contrato `{ "mapping": [...], "unmapped_fields": [...] }`.

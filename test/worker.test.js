@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { generateSearchQueries, structureRequirements } from '../src/worker.js';
+import worker, { generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -164,4 +164,41 @@ test('search query endpoint rejects invalid JSON and excludes prior queries', as
   }), environment());
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { queries: [] });
+});
+
+test('maps equivalent attribute names without changing source values', () => {
+  const attributes = { 'Memória RAM': 16, peso_kg: 1.5, cor: 'preto' };
+  assert.deepEqual(normalizeAttributes({
+    attributes,
+    schema: { properties: { memoria_ram: { type: 'number' }, weight: { type: 'number' } } },
+    known_synonyms: { weight: ['peso', 'peso_kg'] }
+  }), {
+    mapping: [
+      { source_field: 'Memória RAM', target_field: 'memoria_ram', confidence: 1 },
+      { source_field: 'peso_kg', target_field: 'weight', confidence: 0.95 }
+    ],
+    unmapped_fields: ['cor']
+  });
+  assert.deepEqual(attributes, { 'Memória RAM': 16, peso_kg: 1.5, cor: 'preto' });
+});
+
+test('attribute mapping endpoint accepts synonym pairs and rejects invalid JSON', async () => {
+  const response = await worker.fetch(new Request('https://example.com/api/attribute-mappings', {
+    method: 'POST',
+    body: JSON.stringify({
+      attributes: ['voltagem', 'quantidade'],
+      schema: ['voltage'],
+      known_synonyms: [{ source_field: 'voltagem', target_field: 'voltage' }]
+    })
+  }), environment());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    mapping: [{ source_field: 'voltagem', target_field: 'voltage', confidence: 0.95 }],
+    unmapped_fields: ['quantidade']
+  });
+
+  const invalid = await worker.fetch(new Request('https://example.com/api/attribute-mappings', {
+    method: 'POST', body: '{'
+  }), environment());
+  assert.equal(invalid.status, 400);
 });

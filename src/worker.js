@@ -29,6 +29,84 @@ function stringList(value) {
   return value.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean);
 }
 
+function fieldName(value) {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  return textValue(value.field ?? value.name ?? value.key ?? value.attribute);
+}
+
+function sourceFields(attributes) {
+  if (Array.isArray(attributes)) return attributes.map(fieldName).filter(Boolean);
+  if (!attributes || typeof attributes !== 'object') return [];
+  return Object.keys(attributes).map(textValue).filter(Boolean);
+}
+
+function targetFields(schema) {
+  if (Array.isArray(schema)) return schema.map(fieldName).filter(Boolean);
+  if (!schema || typeof schema !== 'object') return [];
+  if (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    return Object.keys(schema.properties).map(textValue).filter(Boolean);
+  }
+  return Object.keys(schema).map(textValue).filter(Boolean);
+}
+
+function comparableField(value) {
+  return textValue(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function synonymPairs(knownSynonyms) {
+  if (Array.isArray(knownSynonyms)) {
+    return knownSynonyms.flatMap(item => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const target = fieldName(item.target_field ?? item.target ?? item.canonical);
+      const sources = item.source_field ?? item.source ?? item.synonyms ?? item.aliases;
+      const aliases = Array.isArray(sources) ? sources : [sources];
+      return target ? aliases.map(fieldName).filter(Boolean).map(alias => [alias, target]) : [];
+    });
+  }
+  if (!knownSynonyms || typeof knownSynonyms !== 'object') return [];
+  return Object.entries(knownSynonyms).flatMap(([canonical, synonyms]) => {
+    const aliases = Array.isArray(synonyms) ? synonyms : [synonyms];
+    return aliases.map(fieldName).filter(Boolean).map(alias => [alias, canonical]);
+  });
+}
+
+export function normalizeAttributes(input = {}) {
+  const sources = sourceFields(input.attributes);
+  const targets = targetFields(input.schema);
+  const canonicalTargets = new Map(targets.map(target => [comparableField(target), target]));
+  const aliases = new Map();
+
+  for (const [alias, proposedTarget] of synonymPairs(input.known_synonyms)) {
+    const target = canonicalTargets.get(comparableField(proposedTarget));
+    if (target) aliases.set(comparableField(alias), target);
+  }
+
+  const mapping = [];
+  const unmapped_fields = [];
+  for (const source of sources) {
+    const normalized = comparableField(source);
+    const exactTarget = canonicalTargets.get(normalized);
+    const synonymTarget = aliases.get(normalized);
+    if (exactTarget || synonymTarget) {
+      mapping.push({
+        source_field: source,
+        target_field: exactTarget ?? synonymTarget,
+        confidence: exactTarget ? 1 : 0.95
+      });
+    } else {
+      unmapped_fields.push(source);
+    }
+  }
+
+  return { mapping, unmapped_fields };
+}
+
 function mandatoryRequirements(value) {
   if (!Array.isArray(value)) return [];
   return value.flatMap(item => {
@@ -159,6 +237,19 @@ async function createSearchQueries(request) {
   return json(generateSearchQueries(input));
 }
 
+async function createAttributeMapping(request) {
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: 'Envie um JSON válido.' }, { status: 400 });
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
+  }
+  return json(normalizeAttributes(input));
+}
+
 async function createAnalysis(request, env) {
   let input;
   try {
@@ -202,6 +293,7 @@ async function handleApi(request, env) {
   }
   if (pathname === '/api/requirements' && request.method === 'POST') return extractRequirements(request);
   if (pathname === '/api/search-queries' && request.method === 'POST') return createSearchQueries(request);
+  if (pathname === '/api/attribute-mappings' && request.method === 'POST') return createAttributeMapping(request);
   if (pathname === '/api/analyses' && request.method === 'POST') return createAnalysis(request, env);
   return json({ error: 'Rota não encontrada.' }, { status: 404 });
 }

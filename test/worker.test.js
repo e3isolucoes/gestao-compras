@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { structureRequirements } from '../src/worker.js';
+import worker, { generateSearchQueries, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -119,4 +119,49 @@ test('rejects non-object requirement payloads', async () => {
     method: 'POST', body: JSON.stringify([])
   }), environment());
   assert.equal(response.status, 400);
+});
+
+test('generates up to five short, distinct search queries', () => {
+  assert.deepEqual(generateSearchQueries({
+    requirements: {
+      commercial_name: 'notebook corporativo',
+      technical_name: 'computador portátil',
+      predicted_category: 'equipamentos de TI',
+      entities: {
+        synonyms: ['laptop empresarial'],
+        manufacturer: 'Dell',
+        mandatory_requirements: [
+          { attribute: 'memória RAM', operator: '>=', value: 16, unit: 'GB' }
+        ],
+        preferences: ['baixo peso']
+      }
+    },
+    previous_queries: ['equipamentos de TI'],
+    result_count: 0
+  }), {
+    queries: [
+      'notebook corporativo',
+      'computador portátil',
+      'Dell',
+      'laptop empresarial',
+      'notebook corporativo memória RAM >= 16 GB'
+    ]
+  });
+});
+
+test('search query endpoint rejects invalid JSON and excludes prior queries', async () => {
+  const invalid = await worker.fetch(new Request('https://example.com/api/search-queries', {
+    method: 'POST', body: '{'
+  }), environment());
+  assert.equal(invalid.status, 400);
+
+  const response = await worker.fetch(new Request('https://example.com/api/search-queries', {
+    method: 'POST',
+    body: JSON.stringify({
+      requirements: 'serviço de manutenção de elevadores',
+      previous_queries: ['serviço de manutenção de elevadores']
+    })
+  }), environment());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { queries: [] });
 });

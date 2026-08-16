@@ -52,3 +52,26 @@ Para automação em CI, defina `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` 
 - `src/worker.js`: API HTTP e integração com D1.
 - `migrations/`: esquema versionado do banco.
 - `wrangler.jsonc`: configuração da aplicação Cloudflare.
+
+## Estruturação de requisitos
+
+`POST /api/requirements` transforma os dados já extraídos em um contrato JSON previsível,
+sem completar campos ausentes ou promover preferências a requisitos obrigatórios:
+
+```json
+{
+  "user_request": "Comprar 20 notebooks",
+  "predicted_category": "Equipamentos de TI",
+  "entities": {
+    "quantity": 20,
+    "unit": "unidades",
+    "preferences": ["baixo peso"],
+    "mandatory_requirements": [
+      { "attribute": "memória RAM", "operator": ">=", "value": 16, "unit": "GB" }
+    ]
+  }
+}
+```
+
+O endpoint preserva valores explícitos, usa `null` ou listas vazias para dados ausentes e
+só solicita esclarecimento quando a própria solicitação (`user_request`) não foi informada.

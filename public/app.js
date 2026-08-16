@@ -54,12 +54,33 @@ function buildModel(data) {
   ].join('');
 }
 
-$('#analysisForm').addEventListener('submit', event => {
+$('#analysisForm').addEventListener('submit', async event => {
   event.preventDefault();
   const data = Object.fromEntries(fields.map(id => [id, value(id)]));
-  $('#output').innerHTML = buildModel(data);
-  $('#results').hidden = false;
-  $('#results').scrollIntoView({ behavior: 'smooth' });
+  const submitBtn = $('#submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.firstChild.textContent = 'Salvando... ';
+
+  try {
+    const response = await fetch('/api/analyses', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Não foi possível salvar a análise.');
+
+    $('#output').innerHTML = buildModel(data);
+    $('#results').hidden = false;
+    $('#results').dataset.analysisId = result.id;
+    $('#results').scrollIntoView({ behavior: 'smooth' });
+    showToast('Análise salva com segurança');
+  } catch (error) {
+    showToast(error.message || 'Não foi possível salvar a análise.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.firstChild.textContent = 'Estruturar problema ';
+  }
 });
 
 $('#exampleBtn').addEventListener('click', () => { fields.forEach(id => { $(`#${id}`).value = examples[id]; }); });

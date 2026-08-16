@@ -1,0 +1,16 @@
+{
+  "name": "orcafacil",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply orcafacil-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply orcafacil-db --remote",
+    "deploy": "wrangler deploy",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.30.0"
+  }
+}

@@ -32,6 +32,18 @@ test('persists a valid analysis in D1', async () => {
   assert.equal(env.rows[0].values[5], '20');
 });
 
+test('persists multicriteria decision inputs', async () => {
+  const env = environment();
+  const criteria = '[{"id":"price","weight":100}]';
+  const alternatives = '[{"name":"A","price":10}]';
+  const response = await worker.fetch(new Request('https://example.com/api/analyses', {
+    method: 'POST', body: JSON.stringify({ description: 'Comprar item', criteria, alternatives })
+  }), env);
+  assert.equal(response.status, 201);
+  assert.equal(env.rows[0].values[8], criteria);
+  assert.equal(env.rows[0].values[9], alternatives);
+});
+
 test('rejects an empty description', async () => {
   const response = await worker.fetch(new Request('https://example.com/api/analyses', {
     method: 'POST', body: JSON.stringify({ description: '  ' })

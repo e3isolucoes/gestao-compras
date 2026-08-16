@@ -1,11 +1,13 @@
 const $ = selector => document.querySelector(selector);
-const fields = ['description', 'budget', 'deadline', 'location', 'quantity', 'preferences', 'constraints'];
+const fields = ['description', 'budget', 'deadline', 'location', 'quantity', 'preferences', 'constraints', 'criteria', 'alternatives'];
 const labels = { budget: 'orçamento máximo', deadline: 'prazo máximo', location: 'local de entrega ou execução', quantity: 'quantidade', preferences: 'preferências', constraints: 'restrições adicionais' };
 
 const examples = {
   description: 'Comprar notebooks para a equipe de engenharia, com 16 GB de RAM, SSD de 512 GB e garantia de 3 anos.',
   budget: 'R$ 120.000', deadline: '15 dias', location: 'Recife — PE', quantity: '20 unidades',
-  preferences: 'baixo peso e assistência técnica local', constraints: 'todos os equipamentos devem ser do mesmo modelo'
+  preferences: 'baixo peso e assistência técnica local', constraints: 'todos os equipamentos devem ser do mesmo modelo',
+  criteria: JSON.stringify([{ id: 'preco', nome: 'Preço', direcao: 'menor', peso: 30 }, { id: 'aderencia', nome: 'Aderência técnica', direcao: 'maior', peso: 25 }, { id: 'qualidade', nome: 'Qualidade', direcao: 'maior', peso: 20 }, { id: 'prazo', nome: 'Prazo', direcao: 'menor', peso: 15 }, { id: 'risco', nome: 'Risco', direcao: 'menor', peso: 10 }], null, 2),
+  alternatives: JSON.stringify([{ nome: 'Fornecedor Alfa', viavel: true, preco: 108000, aderencia: 92, qualidade: 88, prazo: 14, risco: 8, custosAdicionais: 4000, probabilidadeRisco: 0.1, impactoRisco: 8000, valorResidual: 5000 }, { nome: 'Fornecedor Beta', viavel: true, preco: 99000, aderencia: 84, qualidade: 80, prazo: 18, risco: 15, custosAdicionais: 7500, probabilidadeRisco: 0.2, impactoRisco: 12000 }, { nome: 'Fornecedor Gama', viavel: false, motivoInviabilidade: 'Prazo excede a restrição obrigatória.', preco: 94000, aderencia: 87, qualidade: 85, prazo: 30, risco: 12 }], null, 2)
 };
 
 function value(id) { return $(`#${id}`).value.trim(); }
@@ -13,6 +15,29 @@ function list(items) { return `<ul>${items.map(item => `<li>${item}</li>`).join(
 function card(title, content, wide = false) { return `<article class="output-card${wide ? ' wide' : ''}"><h3>${title}</h3>${content}</article>`; }
 function escapeHtml(text) { const node = document.createElement('div'); node.textContent = text; return node.innerHTML; }
 function showToast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); setTimeout(() => $('#toast').classList.remove('show'), 2200); }
+
+function decisionReport(data) {
+  if (!data.criteria || !data.alternatives) return null;
+  let criteria, alternatives;
+  try { criteria = JSON.parse(data.criteria); alternatives = JSON.parse(data.alternatives); } catch { throw new Error('Critérios e alternativas devem ser JSON válido.'); }
+  if (!Array.isArray(criteria) || !criteria.length || !Array.isArray(alternatives) || !alternatives.length) throw new Error('Informe listas não vazias de critérios e alternativas.');
+  const viable = alternatives.filter(a => a.viavel !== false);
+  const baseWeights = Object.fromEntries(criteria.map(c => [c.id, Number(c.peso) || 0]));
+  const score = multipliers => {
+    const raw = Object.fromEntries(criteria.map(c => [c.id, baseWeights[c.id] * (multipliers(c) ? 2 : 1)]));
+    const total = Object.values(raw).reduce((a,b) => a+b, 0); if (!total) throw new Error('A soma dos pesos deve ser maior que zero.');
+    return viable.map(a => {
+      const notes = {}; for (const c of criteria) { const values=viable.map(v=>Number(v[c.id])); if(values.some(v=>!Number.isFinite(v))) throw new Error(`Informe “${c.nome}” numericamente em todas as alternativas viáveis.`); const min=Math.min(...values),max=Math.max(...values),value=Number(a[c.id]); notes[c.id]=max===min?100:(c.direcao==='menor'?(max-value)/(max-min):(value-min)/(max-min))*100; }
+      const value=criteria.reduce((sum,c)=>sum+notes[c.id]*raw[c.id]/total,0); return {a,notes,value};
+    }).sort((a,b)=>b.value-a.value);
+  };
+  const balanced=score(()=>false), economic=score(c=>/preço|custo/i.test(c.nome)), performance=score(c=>/qualidade|aderência|técnic/i.test(c.nome));
+  const ranked=balanced.map((row,i)=>{const a=row.a,risk=Number.isFinite(Number(a.probabilidadeRisco))&&Number.isFinite(Number(a.impactoRisco))?Number(a.probabilidadeRisco)*Number(a.impactoRisco):null,tco=Number.isFinite(Number(a.preco))?Number(a.preco)+(Number(a.custosAdicionais)||0)+(risk||0)-(Number(a.valorResidual)||0):null,audit=criteria.map(c=>`${c.peso}% × ${row.notes[c.id].toFixed(1)}`).join(' + ');return card(`${i+1}º lugar — ${escapeHtml(a.nome)}`,`<p class="rank">Pontuação geral: ${row.value.toFixed(1)}/100</p><div class="metrics"><span><b>Preço</b>${money(a.preco)}</span><span><b>TCO</b>${money(tco)}</span><span><b>Aderência</b>${a.aderencia??'Não informada'}</span><span><b>Qualidade</b>${a.qualidade??'Não informada'}</span><span><b>Prazo</b>${a.prazo??'Não informado'}</span><span><b>Risco esperado</b>${risk===null?'Não calculável':money(risk)}</span></div><p><b>Cálculo:</b> ${audit} = ${row.value.toFixed(2)}.</p><p><b>Vantagens:</b> ${escapeHtml((a.vantagens||['Não informadas']).join('; '))}<br><b>Desvantagens:</b> ${escapeHtml((a.desvantagens||['Não informadas']).join('; '))}</p>`,true)}).join('');
+  const invalid=alternatives.filter(a=>a.viavel===false);
+  const winners=[economic[0]?.a.nome,balanced[0]?.a.nome,performance[0]?.a.nome]; const sensitive=new Set(winners).size>1, tie=balanced[1]&&balanced[0].value-balanced[1].value<=3;
+  const fmt=n=>Number.isFinite(Number(n))?Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'Não informado'; function money(n){return fmt(n);}
+  return card('1 — Validação',alternatives.map(a=>`<p><b>${escapeHtml(a.nome)}: ${a.viavel===false?'INVIÁVEL':'VIÁVEL'}.</b> ${a.viavel===false?escapeHtml(a.motivoInviabilidade||'Motivo não informado.'):'Nenhuma violação foi declarada.'}</p>`).join(''),true)+card('2–6 — Método, normalização, risco e TCO','<p>Normalização min–max em 0–100, invertida para “menor é melhor”; empates recebem 100 para evitar divisão por zero. Aplicou-se análise multicritério ponderada. Não há dados de capacidades ou fluxos para programação linear, inteira/mista, knapsack, alocação ou transporte; AHP/TOPSIS exigiriam dados ou opção metodológica adicionais.</p><p>Risco financeiro = probabilidade × impacto. TCO = preço + custos adicionais + risco financeiro − valor residual. Componentes ausentes não foram estimados.</p>',true)+ranked+card('8 — Sensibilidade',`<div class="scenario-grid"><p class="scenario"><b>A — Econômico</b><br>${escapeHtml(winners[0]||'Sem opção viável')}</p><p class="scenario"><b>B — Equilibrado</b><br>${escapeHtml(winners[1]||'Sem opção viável')}</p><p class="scenario"><b>C — Performance</b><br>${escapeHtml(winners[2]||'Sem opção viável')}</p></div>${sensitive?'<p class="alert"><b>RESULTADO SENSÍVEL AOS PESOS.</b></p>':''}`,true)+card('9–10 — Recomendação e confiança',`<p><b>OPÇÃO RECOMENDADA / MELHOR CUSTO-BENEFÍCIO:</b> ${escapeHtml(winners[1]||'Indisponível')}<br><b>MENOR PREÇO:</b> ${escapeHtml(viable.toSorted((a,b)=>Number(a.preco)-Number(b.preco))[0]?.nome||'Indisponível')}<br><b>MENOR RISCO:</b> ${escapeHtml(viable.toSorted((a,b)=>Number(a.risco)-Number(b.risco))[0]?.nome||'Indisponível')}<br><b>MELHOR PERFORMANCE:</b> ${escapeHtml(winners[2]||'Indisponível')}</p>${tie?'<p class="alert"><b>EMPATE TÉCNICO.</b></p>':''}<p><span class="confidence">80%</span> Confiança baseada na completude numérica, sem validação externa. Evidências técnicas, composição integral do TCO, SLA e histórico dos fornecedores aumentariam a precisão.</p>${invalid.some(a=>!a.motivoInviabilidade)?'<p class="hypothesis"><b>DADO AUSENTE:</b> justifique toda inviabilidade.</p>':''}`,true);
+}
 
 function buildModel(data) {
   const present = id => data[id] ? escapeHtml(data[id]) : null;
@@ -70,7 +95,7 @@ $('#analysisForm').addEventListener('submit', async event => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível salvar a análise.');
 
-    $('#output').innerHTML = buildModel(data);
+    $('#output').innerHTML = decisionReport(data) || buildModel(data);
     $('#results').hidden = false;
     $('#results').dataset.analysisId = result.id;
     $('#results').scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +104,7 @@ $('#analysisForm').addEventListener('submit', async event => {
     showToast(error.message || 'Não foi possível salvar a análise.');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.firstChild.textContent = 'Estruturar problema ';
+    submitBtn.firstChild.textContent = 'Classificar alternativas ';
   }
 });
 

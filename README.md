@@ -75,3 +75,27 @@ sem completar campos ausentes ou promover preferências a requisitos obrigatóri
 
 O endpoint preserva valores explícitos, usa `null` ou listas vazias para dados ausentes e
 só solicita esclarecimento quando a própria solicitação (`user_request`) não foi informada.
+
+## Consultas para busca
+
+`POST /api/search-queries` gera até cinco consultas curtas a partir de requisitos estruturados.
+O endpoint prioriza os nomes comercial e técnico, sinônimos, categoria ou fabricante e acrescenta
+somente características declaradas em `mandatory_requirements`. Consultas presentes em
+`previous_queries` são removidas, e preferências não são usadas para restringir a busca:
+
+```json
+{
+  "requirements": {
+    "commercial_name": "notebook corporativo",
+    "technical_name": "computador portátil",
+    "synonyms": ["laptop empresarial"],
+    "mandatory_requirements": [
+      { "attribute": "memória RAM", "operator": ">=", "value": 16, "unit": "GB" }
+    ]
+  },
+  "previous_queries": ["notebook 16 GB"],
+  "result_count": 12
+}
+```
+
+A resposta mantém sempre o contrato `{ "queries": [...] }`.

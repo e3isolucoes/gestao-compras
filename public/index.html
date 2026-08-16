@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Estruture solicitações de compra em problemas formais de orçamento e otimização.">
-  <title>OrçaFácil — Estruturador de compras</title>
+  <meta name="description" content="Estruture solicitações de compra em problemas formais de orçamento e otimização com a E3I Soluções.">
+  <title>OrçaFácil | E3I Soluções</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a>
+    <a class="brand" href="#entrada" aria-label="E3I Soluções — OrçaFácil"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a>
     <nav><a href="#entrada" class="active">Estruturar</a><a href="#metodo">Método</a></nav>
     <span class="status"><i></i> Ambiente seguro</span>
   </header>
@@ -22,7 +22,7 @@
       <div class="intro-copy">
         <span class="eyebrow">PLANEJAMENTO DE COMPRAS</span>
         <h1>Transforme uma solicitação em uma <em>decisão estruturada.</em></h1>
-        <p>Informe o contexto disponível. O OrçaFácil organiza requisitos, variáveis, restrições e critérios — sem inventar dados.</p>
+        <p>Informe o contexto disponível. O OrçaFácil, da E3I Soluções, organiza requisitos, variáveis, restrições e critérios — sem inventar dados.</p>
       </div>
 
       <form class="request-card" id="analysisForm">
@@ -38,32 +38,30 @@
           <label class="field"><span>Preferências</span><input id="preferences" placeholder="Ex.: garantia estendida"></label>
           <label class="field"><span>Restrições adicionais</span><input id="constraints" placeholder="Ex.: fornecedor homologado"></label>
         </div>
-+        <div class="fields-grid">
-+          <label class="field"><span>Critérios e pesos (JSON)</span><textarea id="criteria" placeholder='[{"id":"preco","nome":"Preço","direcao":"menor","peso":30}]'></textarea></label>
-+          <label class="field field-alternatives"><span>Alternativas (JSON)</span><textarea id="alternatives" placeholder='[{"nome":"Opção A","viavel":true,"preco":1000}]'></textarea><small>Use os ids dos critérios como propriedades. Informe motivoInviabilidade, custosAdicionais, probabilidadeRisco, impactoRisco e valorResidual quando aplicável.</small></label>
-+        </div>
+        <div class="fields-grid">
+          <label class="field"><span>Critérios e pesos (JSON)</span><textarea id="criteria" placeholder='[{"id":"preco","nome":"Preço","direcao":"menor","peso":30}]'></textarea></label>
+          <label class="field field-alternatives"><span>Alternativas (JSON)</span><textarea id="alternatives" placeholder='[{"nome":"Opção A","viavel":true,"preco":1000}]'></textarea><small>Use os ids dos critérios como propriedades. Informe motivoInviabilidade, custosAdicionais, probabilidadeRisco, impactoRisco e valorResidual quando aplicável.</small></label>
+        </div>
         <div class="form-actions">
           <span class="persistence-note">As análises são salvas com segurança.</span>
           <button class="secondary" type="button" id="exampleBtn">Preencher exemplo</button>
--          <button class="primary" type="submit" id="submitBtn">Estruturar problema <span>→</span></button>
-+          <button class="primary" type="submit" id="submitBtn">Classificar alternativas <span>→</span></button>
+          <button class="primary" type="submit" id="submitBtn">Classificar alternativas <span>→</span></button>
         </div>
       </form>
     </section>
 
     <section class="method" id="metodo">
       <span class="eyebrow">COMO FUNCIONA</span><h2>Do texto livre ao modelo de decisão.</h2>
-      <div class="steps"><article><b>01</b><h3>Organize</h3><p>Separe necessidade, requisitos e informações ausentes.</p></article><article><b>02</b><h3>Modele</h3><p>Defina variáveis, objetivo[...]
+      <div class="steps"><article><b>01</b><h3>Organize</h3><p>Separe necessidade, requisitos e informações ausentes.</p></article><article><b>02</b><h3>Modele</h3><p>Defina variáveis, objetivo e restrições mensuráveis.</p></article><article><b>03</b><h3>Compare</h3><p>Avalie alternativas com critérios e pesos transparentes.</p></article></div>
     </section>
 
     <section class="results" id="results" hidden aria-live="polite">
--      <div class="results-head"><div><span class="eyebrow">PROBLEMA ESTRUTURADO</span><h2>Modelo para orçamento e otimização</h2><p>Gerado somente com os dados informados. Campos incompletos s�[...]
-+      <div class="results-head"><div><span class="eyebrow">DECISÃO ESTRUTURADA</span><h2>Ranking auditável de alternativas</h2><p>Gerado somente com os dados informados. Campos incompletos são sinalizados.</p></div><div class="result-actions"><button id="copyBtn" class="secondary">Copiar análise</button><button id="newBtn" class="primary">Nova análise</button></div></div>
-       <div id="output" class="output"></div>
-     </section>
-   </main>
-   <footer><a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com problemas bem definidos.</p><small>© 2026 O[...]
-   <div class="toast" id="toast" role="status"></div>
-   <script src="app.js"></script>
- </body>
- </html>
+      <div class="results-head"><div><span class="eyebrow">DECISÃO ESTRUTURADA</span><h2>Ranking auditável de alternativas</h2><p>Gerado somente com os dados informados. Campos incompletos são sinalizados.</p></div><div class="result-actions"><button id="copyBtn" class="secondary">Copiar análise</button><button id="newBtn" class="primary">Nova análise</button></div></div>
+      <div id="output" class="output"></div>
+    </section>
+  </main>
+  <footer><a class="brand" href="#entrada" aria-label="E3I Soluções — OrçaFácil"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com problemas bem definidos.</p><small>© 2026 E3I Soluções</small></footer>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

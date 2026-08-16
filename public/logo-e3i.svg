@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 72" role="img" aria-labelledby="title desc">
+  <title id="title">E3I Soluções</title>
+  <desc id="desc">Marca E3I Soluções em azul e laranja</desc>
+  <path fill="#F58220" d="M8 11.5A7.5 7.5 0 0 1 15.5 4h43A7.5 7.5 0 0 1 66 11.5v10H25v8.25h31v12.5H25v8.25h41v10A7.5 7.5 0 0 1 58.5 68h-43A7.5 7.5 0 0 1 8 60.5v-49Z"/>
+  <path fill="#17365D" d="M75 4h37.5c13.2 0 21.5 6.1 21.5 16.2 0 6.3-3.4 11.1-9.2 13.7 7.3 2.5 11.2 7.8 11.2 15 0 11.8-9.2 19.1-23.9 19.1H75V54h35.8c5.5 0 8.2-2 8.2-6s-2.8-6-8.4-6H89V29h20.7c5 0 7.3-1.9 7.3-5.5s-2.5-5.5-7.5-5.5H75V4Zm69 0h17v64h-17V4Z"/>
+  <path fill="#17365D" d="M176 19h62v4h-62z"/>
+  <text x="176" y="47" fill="#17365D" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="1.2">SOLUÇÕES</text>
+</svg>

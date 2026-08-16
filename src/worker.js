@@ -1,4 +1,4 @@
-const FIELDS = ['description', 'budget', 'deadline', 'location', 'quantity', 'preferences', 'constraints'];
+const FIELDS = ['description', 'budget', 'deadline', 'location', 'quantity', 'preferences', 'constraints', 'criteria', 'alternatives'];
 const MAX_LENGTH = 5000;
 
 function json(data, init = {}) {
@@ -29,10 +29,20 @@ async function createAnalysis(request, env) {
   const id = crypto.randomUUID();
   await env.DB.prepare(`
     INSERT INTO analyses (
-      id, description, budget, deadline, location, quantity, preferences, constraints_text
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, data.description, data.budget || null, data.deadline || null, data.location || null,
-    data.quantity || null, data.preferences || null, data.constraints || null).run();
+      id, description, budget, deadline, location, quantity, preferences, constraints_text, criteria_json, alternatives_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id,
+    data.description,
+    data.budget || null,
+    data.deadline || null,
+    data.location || null,
+    data.quantity || null,
+    data.preferences || null,
+    data.constraints || null,
+    data.criteria || null,
+    data.alternatives || null
+  ).run();
 
   return json({ id, saved: true }, { status: 201 });
 }

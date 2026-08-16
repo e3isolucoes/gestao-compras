@@ -38,26 +38,32 @@
           <label class="field"><span>Preferências</span><input id="preferences" placeholder="Ex.: garantia estendida"></label>
           <label class="field"><span>Restrições adicionais</span><input id="constraints" placeholder="Ex.: fornecedor homologado"></label>
         </div>
++        <div class="fields-grid">
++          <label class="field"><span>Critérios e pesos (JSON)</span><textarea id="criteria" placeholder='[{"id":"preco","nome":"Preço","direcao":"menor","peso":30}]'></textarea></label>
++          <label class="field field-alternatives"><span>Alternativas (JSON)</span><textarea id="alternatives" placeholder='[{"nome":"Opção A","viavel":true,"preco":1000}]'></textarea><small>Use os ids dos critérios como propriedades. Informe motivoInviabilidade, custosAdicionais, probabilidadeRisco, impactoRisco e valorResidual quando aplicável.</small></label>
++        </div>
         <div class="form-actions">
           <span class="persistence-note">As análises são salvas com segurança.</span>
           <button class="secondary" type="button" id="exampleBtn">Preencher exemplo</button>
-          <button class="primary" type="submit" id="submitBtn">Estruturar problema <span>→</span></button>
+-          <button class="primary" type="submit" id="submitBtn">Estruturar problema <span>→</span></button>
++          <button class="primary" type="submit" id="submitBtn">Classificar alternativas <span>→</span></button>
         </div>
       </form>
     </section>
 
     <section class="method" id="metodo">
       <span class="eyebrow">COMO FUNCIONA</span><h2>Do texto livre ao modelo de decisão.</h2>
-      <div class="steps"><article><b>01</b><h3>Organize</h3><p>Separe necessidade, requisitos e informações ausentes.</p></article><article><b>02</b><h3>Modele</h3><p>Defina variáveis, objetivo e restrições mensuráveis.</p></article><article><b>03</b><h3>Compare</h3><p>Avalie alternativas com critérios e pesos transparentes.</p></article></div>
+      <div class="steps"><article><b>01</b><h3>Organize</h3><p>Separe necessidade, requisitos e informações ausentes.</p></article><article><b>02</b><h3>Modele</h3><p>Defina variáveis, objetivo[...]
     </section>
 
     <section class="results" id="results" hidden aria-live="polite">
-      <div class="results-head"><div><span class="eyebrow">PROBLEMA ESTRUTURADO</span><h2>Modelo para orçamento e otimização</h2><p>Gerado somente com os dados informados. Campos incompletos são sinalizados.</p></div><div class="result-actions"><button id="copyBtn" class="secondary">Copiar estrutura</button><button id="newBtn" class="primary">Nova análise</button></div></div>
-      <div id="output" class="output"></div>
-    </section>
-  </main>
-  <footer><a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com problemas bem definidos.</p><small>© 2026 OrçaFácil</small></footer>
-  <div class="toast" id="toast" role="status"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+-      <div class="results-head"><div><span class="eyebrow">PROBLEMA ESTRUTURADO</span><h2>Modelo para orçamento e otimização</h2><p>Gerado somente com os dados informados. Campos incompletos s�[...]
++      <div class="results-head"><div><span class="eyebrow">DECISÃO ESTRUTURADA</span><h2>Ranking auditável de alternativas</h2><p>Gerado somente com os dados informados. Campos incompletos são sinalizados.</p></div><div class="result-actions"><button id="copyBtn" class="secondary">Copiar análise</button><button id="newBtn" class="primary">Nova análise</button></div></div>
+       <div id="output" class="output"></div>
+     </section>
+   </main>
+   <footer><a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com problemas bem definidos.</p><small>© 2026 O[...]
+   <div class="toast" id="toast" role="status"></div>
+   <script src="app.js"></script>
+ </body>
+ </html>

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Análise auditável de alternativas de compra com TCO, risco e múltiplos critérios.">
-  <title>OrçaFácil — Decisões de compra, com método</title>
+  <meta name="description" content="Estruture solicitações de compra em problemas formais de orçamento e otimização.">
+  <title>OrçaFácil — Estruturador de compras</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,63 +12,50 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="OrçaFácil, página inicial"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a>
-    <nav aria-label="Navegação principal"><a class="active" href="#analise">Análise</a><a href="#como-funciona">Como funciona</a><a href="#criterios">Critérios</a></nav>
-    <button class="history-btn" type="button" id="historyBtn"><span>↺</span> Histórico</button>
+    <a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a>
+    <nav><a href="#entrada" class="active">Estruturar</a><a href="#metodo">Método</a></nav>
+    <span class="status"><i></i> Ambiente seguro</span>
   </header>
 
   <main>
-    <section class="hero" id="analise">
-      <div class="eyebrow"><span></span> INTELIGÊNCIA PARA COMPRAS</div>
-      <h1>Decisões de compra,<br><em>com método.</em></h1>
-      <p>Descreva o que você precisa. Nós estruturamos os requisitos, comparamos alternativas e indicamos a melhor decisão — com critérios claros e auditáveis.</p>
+    <section class="intro" id="entrada">
+      <div class="intro-copy">
+        <span class="eyebrow">PLANEJAMENTO DE COMPRAS</span>
+        <h1>Transforme uma solicitação em uma <em>decisão estruturada.</em></h1>
+        <p>Informe o contexto disponível. O OrçaFácil organiza requisitos, variáveis, restrições e critérios — sem inventar dados.</p>
+      </div>
 
-      <form class="need-card" id="analysisForm">
-        <div class="label-row"><label for="need">O que você precisa contratar ou comprar?</label><span>Seja tão detalhado quanto quiser</span></div>
-        <textarea id="need" required placeholder="Ex.: Preciso comprar 20 notebooks para a equipe de engenharia, com 16 GB de RAM, entrega em até 15 dias e orçamento máximo de R$ 120 mil..."></textarea>
-        <div class="form-footer">
-          <button type="button" class="attach" id="attachBtn" aria-label="Anexar arquivo">⌕ <span>Anexar arquivo</span></button>
-          <input type="file" id="fileInput" hidden>
-          <span class="security">◆ Seus dados são processados com segurança</span>
-          <button class="primary" type="submit">Analisar necessidade <span>→</span></button>
+      <form class="request-card" id="analysisForm">
+        <div class="field field-wide">
+          <div class="label-row"><label for="description">Solicitação <b>*</b></label><span>Descreva o que precisa comprar, contratar ou dimensionar</span></div>
+          <textarea id="description" required placeholder="Ex.: Comprar notebooks para a equipe de engenharia..."></textarea>
+        </div>
+        <div class="fields-grid">
+          <label class="field"><span>Orçamento máximo</span><input id="budget" placeholder="Ex.: R$ 120.000"></label>
+          <label class="field"><span>Prazo máximo</span><input id="deadline" placeholder="Ex.: 15 dias"></label>
+          <label class="field"><span>Local</span><input id="location" placeholder="Ex.: Recife — PE"></label>
+          <label class="field"><span>Quantidade</span><input id="quantity" placeholder="Ex.: 20 unidades"></label>
+          <label class="field"><span>Preferências</span><input id="preferences" placeholder="Ex.: garantia estendida"></label>
+          <label class="field"><span>Restrições adicionais</span><input id="constraints" placeholder="Ex.: fornecedor homologado"></label>
+        </div>
+        <div class="form-actions">
+          <button class="secondary" type="button" id="exampleBtn">Preencher exemplo</button>
+          <button class="primary" type="submit">Estruturar problema <span>→</span></button>
         </div>
       </form>
-      <div class="examples"><span>EXPERIMENTE UM EXEMPLO:</span><button data-example="notebooks">Notebooks corporativos</button><button data-example="energia">Gerador de energia</button><button data-example="frota">Frota de veículos</button></div>
     </section>
 
-    <section class="process" id="como-funciona">
-      <div class="section-head"><div><span>COMO FUNCIONA</span><h2>Da necessidade à decisão.</h2></div><p>Um processo estruturado que transforma informações dispersas em uma recomendação objetiva, comparável e defensável.</p></div>
-      <div class="steps">
-        <article><div class="icon">⌁</div><b>01</b><h3>Entendemos</h3><p>Extraímos requisitos, restrições e prioridades da sua descrição.</p></article>
-        <article><div class="icon">▦</div><b>02</b><h3>Comparamos</h3><p>Avaliamos alternativas por custo total, qualidade, prazo, risco e aderência.</p></article>
-        <article><div class="icon">↗</div><b>03</b><h3>Otimizamos</h3><p>Aplicamos modelos multicritério e análise de sensibilidade.</p></article>
-        <article><div class="icon">✓</div><b>04</b><h3>Recomendamos</h3><p>Entregamos um ranking transparente, com justificativas auditáveis.</p></article>
-      </div>
-    </section>
-
-    <section class="criteria" id="criterios">
-      <div><span class="mini">DECISÃO ALÉM DO PREÇO</span><h2>A melhor compra não é<br>necessariamente a <em>mais barata.</em></h2><p>Nossa análise considera o custo total de propriedade e equilibra os fatores que realmente impactam o resultado.</p></div>
-      <div class="criteria-list">
-        <div><span>01</span><strong>Custo total</strong><small>Aquisição, operação, manutenção e logística</small><b>30%</b></div>
-        <div><span>02</span><strong>Aderência técnica</strong><small>Compatibilidade com todos os requisitos</small><b>25%</b></div>
-        <div><span>03</span><strong>Qualidade</strong><small>Desempenho, durabilidade e confiabilidade</small><b>15%</b></div>
-        <div><span>04</span><strong>Prazo e risco</strong><small>Disponibilidade, entrega e exposição a falhas</small><b>20%</b></div>
-        <div><span>05</span><strong>Capacidade e condições</strong><small>Escala, suporte e termos comerciais</small><b>10%</b></div>
-      </div>
+    <section class="method" id="metodo">
+      <span class="eyebrow">COMO FUNCIONA</span><h2>Do texto livre ao modelo de decisão.</h2>
+      <div class="steps"><article><b>01</b><h3>Organize</h3><p>Separe necessidade, requisitos e informações ausentes.</p></article><article><b>02</b><h3>Modele</h3><p>Defina variáveis, objetivo e restrições mensuráveis.</p></article><article><b>03</b><h3>Compare</h3><p>Avalie alternativas com critérios e pesos transparentes.</p></article></div>
     </section>
 
     <section class="results" id="results" hidden aria-live="polite">
-      <button class="close" id="closeResults" aria-label="Fechar resultados">×</button>
-      <span class="mini">ANÁLISE PRELIMINAR</span><h2>Necessidade estruturada</h2>
-      <div class="result-grid">
-        <article><small>Objetivo identificado</small><p id="objective"></p></article>
-        <article><small>Método selecionado</small><p>Weighted Scoring + análise multicritério</p></article>
-        <article><small>Critérios</small><p>7 critérios · pontuação normalizada</p></article>
-      </div>
-      <div class="notice"><strong>Próximo passo</strong><p>Inclua cotações e dados técnicos das alternativas para calcular TCO, eliminar opções inviáveis e gerar o ranking de 0 a 100. Nenhum preço ou fornecedor será inventado.</p></div>
+      <div class="results-head"><div><span class="eyebrow">PROBLEMA ESTRUTURADO</span><h2>Modelo para orçamento e otimização</h2><p>Gerado somente com os dados informados. Campos incompletos são sinalizados.</p></div><div class="result-actions"><button id="copyBtn" class="secondary">Copiar estrutura</button><button id="newBtn" class="primary">Nova análise</button></div></div>
+      <div id="output" class="output"></div>
     </section>
   </main>
-  <footer><a class="brand" href="#"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com critérios claros.</p><small>© 2026 OrçaFácil</small></footer>
+  <footer><a class="brand" href="#entrada"><span class="brand-mark">O</span><span>Orça<span>Fácil</span></span></a><p>Decisões melhores começam com problemas bem definidos.</p><small>© 2026 OrçaFácil</small></footer>
   <div class="toast" id="toast" role="status"></div>
   <script src="app.js"></script>
 </body>

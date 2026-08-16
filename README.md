@@ -28,7 +28,9 @@ O Wrangler exibe o endereço local (normalmente `http://localhost:8787`). O modo
    npx wrangler d1 create orcafacil-db
    ```
 
-3. Copie o `database_id` retornado para `wrangler.jsonc`, substituindo `SUBSTITUA_PELO_DATABASE_ID`.
+3. Copie o `database_id` retornado para `wrangler.jsonc`. O banco deve pertencer à mesma
+   conta Cloudflare conectada ao Worker `gestao-compras`; IDs de outra conta são rejeitados
+   durante a publicação.
 4. Aplique as migrações no banco remoto e publique:
 
    ```bash

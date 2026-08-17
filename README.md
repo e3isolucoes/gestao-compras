@@ -121,3 +121,28 @@ sem alterar valores numéricos nem converter unidades:
 
 A resposta contém somente os campos mapeados, com sua confiança, e a lista de campos sem
 correspondência no contrato `{ "mapping": [...], "unmapped_fields": [...] }`.
+
+## Compatibilidade técnica de candidatos
+
+`POST /api/candidate-evaluations` verifica requisitos obrigatórios apenas nos atributos que o
+processo automático deixou em `uncertain_attributes`. Um valor inequivocamente incompatível
+define `mandatory_fit` como `false`; quando não há evidência suficiente, o atributo permanece
+na lista de incertezas sem provocar uma rejeição automática:
+
+```json
+{
+  "mandatory_requirements": [
+    { "attribute": "memória RAM", "operator": ">=", "value": 16, "unit": "GB" }
+  ],
+  "top_candidates": [
+    {
+      "candidate_id": "produto-1",
+      "uncertain_attributes": ["memória RAM"],
+      "specifications": { "memória RAM": "8 GB" }
+    }
+  ]
+}
+```
+
+A resposta segue o contrato `{ "evaluations": [...] }`, incluindo pontuação de 0 a 100,
+incertezas remanescentes e motivos objetivos de rejeição.

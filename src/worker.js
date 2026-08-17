@@ -211,6 +211,111 @@ export function generateSearchQueries(input = {}) {
   return { queries };
 }
 
+function candidateAttributes(candidate) {
+  const containers = [
+    candidate.attributes,
+    candidate.normalized_attributes,
+    candidate.technical_attributes,
+    candidate.specifications
+  ];
+  const attributes = new Map();
+  for (const container of containers) {
+    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
+    for (const [name, value] of Object.entries(container)) {
+      attributes.set(comparableField(name), value);
+    }
+  }
+  return attributes;
+}
+
+function uncertainNames(candidate) {
+  const value = candidate.uncertain_attributes ?? candidate.undetermined_attributes;
+  if (!Array.isArray(value)) return null;
+  return new Set(value.map(fieldName).filter(Boolean).map(comparableField));
+}
+
+function numericValue(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function satisfies(actual, requirement) {
+  const rawOperator = textValue(requirement.operator).toLocaleLowerCase('pt-BR');
+  const operator = comparableField(requirement.operator);
+  const expected = requirement.value;
+  const actualNumber = numericValue(actual);
+  const expectedNumber = numericValue(expected);
+  if (['>', '>=', '<', '<='].includes(rawOperator) && actualNumber !== null && expectedNumber !== null) {
+    if (rawOperator === '>') return actualNumber > expectedNumber;
+    if (rawOperator === '>=') return actualNumber >= expectedNumber;
+    if (rawOperator === '<') return actualNumber < expectedNumber;
+    return actualNumber <= expectedNumber;
+  }
+  const left = comparableField(String(actual));
+  const right = comparableField(String(expected));
+  if (['!=', '<>'].includes(rawOperator) || operator === 'diferente') return left !== right;
+  if (['contem', 'contains', 'inclui'].includes(operator)) return left.includes(right);
+  if (['nao contem', 'not contains', 'nao inclui'].includes(operator)) return !left.includes(right);
+  if (['=', '=='].includes(rawOperator) || ['igual', 'equals', 'deve ser'].includes(operator)) {
+    return actualNumber !== null && expectedNumber !== null ? actualNumber === expectedNumber : left === right;
+  }
+  return null;
+}
+
+export function evaluateCandidates(input = {}) {
+  const requirements = mandatoryRequirements(
+    input.mandatory_requirements ?? input.requirements?.mandatory_requirements
+  );
+  const candidates = Array.isArray(input.top_candidates)
+    ? input.top_candidates
+    : (Array.isArray(input.candidates) ? input.candidates : []);
+
+  return {
+    evaluations: candidates.map(candidate => {
+      const candidateId = candidate?.candidate_id ?? candidate?.id ?? '';
+      const attributes = candidate && typeof candidate === 'object' ? candidateAttributes(candidate) : new Map();
+      const selected = candidate && typeof candidate === 'object' ? uncertainNames(candidate) : null;
+      const relevant = selected === null
+        ? requirements
+        : requirements.filter(item => selected.has(comparableField(item.attribute)));
+      const uncertain_attributes = [];
+      const rejection_reasons = [];
+      let satisfiedCount = 0;
+
+      for (const requirement of relevant) {
+        const key = comparableField(requirement.attribute);
+        if (!attributes.has(key)) {
+          uncertain_attributes.push(requirement.attribute);
+          continue;
+        }
+        const result = satisfies(attributes.get(key), requirement);
+        if (result === null) {
+          uncertain_attributes.push(requirement.attribute);
+        } else if (result) {
+          satisfiedCount += 1;
+        } else {
+          rejection_reasons.push(
+            `${requirement.attribute}: valor informado não atende a ${requirement.operator} ${requirement.value}${requirement.unit ? ` ${requirement.unit}` : ''}.`
+          );
+        }
+      }
+
+      const technical_score = relevant.length === 0
+        ? 100
+        : Math.round((satisfiedCount / relevant.length) * 100);
+      return {
+        candidate_id: String(candidateId),
+        mandatory_fit: rejection_reasons.length === 0,
+        technical_score,
+        uncertain_attributes,
+        rejection_reasons
+      };
+    })
+  };
+}
+
 async function extractRequirements(request) {
   let input;
   try {
@@ -248,6 +353,19 @@ async function createAttributeMapping(request) {
     return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
   }
   return json(normalizeAttributes(input));
+}
+
+async function createCandidateEvaluations(request) {
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: 'Envie um JSON válido.' }, { status: 400 });
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
+  }
+  return json(evaluateCandidates(input));
 }
 
 async function createAnalysis(request, env) {
@@ -294,6 +412,7 @@ async function handleApi(request, env) {
   if (pathname === '/api/requirements' && request.method === 'POST') return extractRequirements(request);
   if (pathname === '/api/search-queries' && request.method === 'POST') return createSearchQueries(request);
   if (pathname === '/api/attribute-mappings' && request.method === 'POST') return createAttributeMapping(request);
+  if (pathname === '/api/candidate-evaluations' && request.method === 'POST') return createCandidateEvaluations(request);
   if (pathname === '/api/analyses' && request.method === 'POST') return createAnalysis(request, env);
   return json({ error: 'Rota não encontrada.' }, { status: 404 });
 }

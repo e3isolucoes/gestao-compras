@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { evaluateCandidates, formulateProcurementModel, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
+import worker, { compareSensitivityResults, evaluateCandidates, formulateProcurementModel, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -300,4 +300,36 @@ test('mathematical model endpoint reports missing symbolic parameters', async ()
     method: 'POST', body: '{'
   }), environment());
   assert.equal(invalid.status, 400);
+});
+
+test('compares supplied sensitivity winners without calculating new scores', () => {
+  const comparison = compareSensitivityResults({ solver_sensitivity_results: {
+    economic: { winner: 'Fornecedor A', critical_variables: ['preço'] },
+    balanced: { selected_alternative: 'Fornecedor A', critical_variables: ['prazo'] },
+    performance: { recommended_alternative: 'Fornecedor A' },
+    low_risk: { best_candidate: 'Fornecedor A', sensitive_variables: ['prazo'] }
+  } });
+  assert.deepEqual(comparison.winner_by_scenario, {
+    economic: 'Fornecedor A', balanced: 'Fornecedor A', performance: 'Fornecedor A', low_risk: 'Fornecedor A'
+  });
+  assert.equal(comparison.stable_winner, true);
+  assert.equal(comparison.decision_sensitivity, 'LOW');
+  assert.deepEqual(comparison.critical_variables, ['preço', 'prazo']);
+  assert.ok(comparison.summary.split(/\s+/).length <= 60);
+});
+
+test('sensitivity comparison endpoint reports changing and missing winners', async () => {
+  const response = await worker.fetch(new Request('https://example.com/api/sensitivity-comparisons', {
+    method: 'POST',
+    body: JSON.stringify({ scenarios: [
+      { scenario: 'economic', winner: 'A' },
+      { scenario: 'balanced', winner: 'B' },
+      { scenario: 'performance', winner: 'C' }
+    ] })
+  }), environment());
+  const comparison = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(comparison.stable_winner, false);
+  assert.equal(comparison.decision_sensitivity, 'HIGH');
+  assert.equal(comparison.winner_by_scenario.low_risk, '');
 });

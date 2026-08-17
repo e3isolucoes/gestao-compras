@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
+import worker, { evaluateCandidates, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -201,4 +201,59 @@ test('attribute mapping endpoint accepts synonym pairs and rejects invalid JSON'
     method: 'POST', body: '{'
   }), environment());
   assert.equal(invalid.status, 400);
+});
+
+test('evaluates only candidate attributes marked as uncertain', () => {
+  assert.deepEqual(evaluateCandidates({
+    mandatory_requirements: [
+      { attribute: 'memória RAM', operator: '>=', value: 16, unit: 'GB' },
+      { attribute: 'sistema operacional', operator: '=', value: 'Linux' }
+    ],
+    top_candidates: [
+      {
+        candidate_id: 'produto-1',
+        uncertain_attributes: ['memória RAM'],
+        specifications: { 'Memória RAM': '8 GB', 'sistema operacional': 'Linux' }
+      },
+      {
+        id: 2,
+        uncertain_attributes: ['memória RAM'],
+        attributes: {}
+      }
+    ]
+  }), {
+    evaluations: [
+      {
+        candidate_id: 'produto-1',
+        mandatory_fit: false,
+        technical_score: 0,
+        uncertain_attributes: [],
+        rejection_reasons: ['memória RAM: valor informado não atende a >= 16 GB.']
+      },
+      {
+        candidate_id: '2',
+        mandatory_fit: true,
+        technical_score: 0,
+        uncertain_attributes: ['memória RAM'],
+        rejection_reasons: []
+      }
+    ]
+  });
+});
+
+test('candidate evaluation endpoint returns the stable output contract', async () => {
+  const response = await worker.fetch(new Request('https://example.com/api/candidate-evaluations', {
+    method: 'POST',
+    body: JSON.stringify({
+      requirements: { mandatory_requirements: [{ attribute: 'voltagem', operator: '=', value: 220, unit: 'V' }] },
+      candidates: [{ candidate_id: 'a', technical_attributes: { voltagem: '220 V' } }]
+    })
+  }), environment());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    evaluations: [{
+      candidate_id: 'a', mandatory_fit: true, technical_score: 100,
+      uncertain_attributes: [], rejection_reasons: []
+    }]
+  });
 });

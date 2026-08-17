@@ -173,3 +173,15 @@ MCDA_PLUS_MILP, mas não executa cálculos nem procura uma solução:
 A resposta contém apenas o tipo do modelo, objetivo, variáveis de decisão, restrições,
 critérios, recomendação de solver e parâmetros ainda ausentes. Expressões são templates
 simbólicos e valores não informados nunca são estimados.
+
+## Apresentação final do orçamento
+
+`POST /api/budget-presentations` organiza `request_summary`, `ranking`,
+`solver_interpretation`, `sensitivity` e `data_quality` em uma apresentação final. A resposta
+preserva o ranking e todos os números recebidos, limita cada alternativa a três vantagens,
+duas limitações e 50 palavras de explicação, além de identificar a recomendação, menor custo,
+menor risco, melhor desempenho e confiança conforme a interpretação fornecida.
+
+Quando `data_quality.score` for menor que `data_quality.minimum_threshold`, a resposta inclui
+o aviso de recomendação preliminar. Custos são sempre acompanhados de uma ressalva explícita
+de que os dados de análise não constituem cotações oficiais.

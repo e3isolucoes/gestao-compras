@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { evaluateCandidates, formulateProcurementModel, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
+import worker, { evaluateCandidates, formulateProcurementModel, generateBudgetPresentation, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -300,4 +300,41 @@ test('mathematical model endpoint reports missing symbolic parameters', async ()
     method: 'POST', body: '{'
   }), environment());
   assert.equal(invalid.status, 400);
+});
+
+test('builds a final budget presentation using only supplied results', () => {
+  const ranking = [{ nome: 'Fornecedor A', custo: 1000, nota: 91, vantagens: ['Prazo', 'SLA', 'Garantia', 'Extra'], desvantagens: ['Risco', 'Frete', 'Extra'] }];
+  const result = generateBudgetPresentation({
+    request_summary: { necessidade: 'Contratar manutenção' },
+    ranking,
+    solver_interpretation: {
+      melhor_escolha: 'Fornecedor A', menor_custo: 'Fornecedor A', menor_risco: 'Fornecedor A',
+      melhor_desempenho: 'Fornecedor A', beneficio_economico_ou_operacional: 'Reduz o prazo em 2 dias.', confianca: 88
+    },
+    sensitivity: { stable: true },
+    data_quality: { score: 60, minimum_threshold: 70 }
+  });
+
+  assert.equal(result.notice, 'Recomendação preliminar — dados adicionais podem alterar o ranking.');
+  assert.equal(result.need, 'Contratar manutenção');
+  assert.equal(result.viable_alternatives[0].cost, 1000);
+  assert.equal(result.viable_alternatives[0].score, 91);
+  assert.deepEqual(result.viable_alternatives[0].advantages, ['Prazo', 'SLA', 'Garantia']);
+  assert.deepEqual(result.viable_alternatives[0].limitations, ['Risco', 'Frete']);
+  assert.equal(result.recommendation_benefit, 'Reduz o prazo em 2 dias.');
+  assert.match(result.cost_disclaimer, /não constituem cotações oficiais/);
+  assert.strictEqual(result.ranking, ranking);
+});
+
+test('budget presentation endpoint validates payloads', async () => {
+  const invalid = await worker.fetch(new Request('https://example.com/api/budget-presentations', {
+    method: 'POST', body: '[]'
+  }), environment());
+  assert.equal(invalid.status, 400);
+
+  const response = await worker.fetch(new Request('https://example.com/api/budget-presentations', {
+    method: 'POST', body: JSON.stringify({ request_summary: 'Comprar cadeiras', ranking: [] })
+  }), environment());
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).need, 'Comprar cadeiras');
 });

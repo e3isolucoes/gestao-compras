@@ -3,6 +3,8 @@ const MAX_LENGTH = 5000;
 
 const REQUIREMENT_FIELDS = ['quantity', 'unit', 'location', 'deadline', 'budget_limit'];
 const MAX_SEARCH_QUERIES = 5;
+const PRELIMINARY_RECOMMENDATION = 'Recomendação preliminar — dados adicionais podem alterar o ranking.';
+const COST_DISCLAIMER = 'Os custos apresentados são dados fornecidos para análise e não constituem cotações oficiais.';
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers);
@@ -410,6 +412,62 @@ export function formulateProcurementModel(input = {}) {
   };
 }
 
+function firstDefined(...values) {
+  return values.find(value => value !== undefined && value !== null && value !== '');
+}
+
+function limitedText(value, maximumWords = 50) {
+  if (typeof value !== 'string') return value ?? null;
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  return words.length <= maximumWords ? value.trim() : `${words.slice(0, maximumWords).join(' ')}…`;
+}
+
+function presentationOptions(ranking) {
+  const rows = Array.isArray(ranking)
+    ? ranking
+    : recordList(ranking?.ranking ?? ranking?.alternatives ?? ranking?.options ?? ranking?.opcoes);
+  return rows.map((row, index) => ({
+    rank: firstDefined(row.rank, row.position, row.posicao, index + 1),
+    option: firstDefined(row.option, row.alternative, row.name, row.nome, row.id, ''),
+    cost: firstDefined(row.cost, row.custo, row.price, row.preco, null),
+    score: firstDefined(row.score, row.nota, row.pontuacao, null),
+    advantages: stringList(row.advantages ?? row.vantagens).slice(0, 3),
+    limitations: stringList(row.limitations ?? row.disadvantages ?? row.limitacoes ?? row.desvantagens).slice(0, 2),
+    explanation: limitedText(firstDefined(row.explanation, row.explicacao, row.summary, row.resumo, null))
+  }));
+}
+
+function qualityIsBelowMinimum(dataQuality) {
+  if (!dataQuality || typeof dataQuality !== 'object' || Array.isArray(dataQuality)) return false;
+  const score = firstDefined(dataQuality.score, dataQuality.value, dataQuality.nota, dataQuality.data_quality);
+  const minimum = firstDefined(dataQuality.minimum, dataQuality.minimum_threshold, dataQuality.threshold, dataQuality.limite_minimo);
+  return typeof score === 'number' && typeof minimum === 'number' && score < minimum;
+}
+
+/** Formats the final result without calculating, estimating, or changing supplied figures. */
+export function generateBudgetPresentation(input = {}) {
+  const interpretation = input.solver_interpretation && typeof input.solver_interpretation === 'object'
+    ? input.solver_interpretation : {};
+  const request = input.request_summary;
+  const ranking = input.ranking;
+  const dataQuality = input.data_quality;
+  return {
+    notice: qualityIsBelowMinimum(dataQuality) ? PRELIMINARY_RECOMMENDATION : null,
+    need: firstDefined(request?.need, request?.necessidade, request?.objective, request?.objetivo, request, null),
+    viable_alternatives: presentationOptions(ranking),
+    ranking,
+    best_choice: firstDefined(interpretation.best_choice, interpretation.melhor_escolha, null),
+    lowest_cost: firstDefined(interpretation.lowest_cost, interpretation.menor_custo, null),
+    lowest_risk: firstDefined(interpretation.lowest_risk, interpretation.menor_risco, null),
+    best_performance: firstDefined(interpretation.best_performance, interpretation.melhor_desempenho, null),
+    recommendation_benefit: limitedText(firstDefined(interpretation.economic_or_operational_benefit, interpretation.beneficio_economico_ou_operacional, interpretation.recommendation_reason, null)),
+    recommendation_confidence: firstDefined(interpretation.confidence, interpretation.confianca, dataQuality?.confidence, dataQuality?.confianca, null),
+    sensitivity: input.sensitivity ?? null,
+    data_quality: dataQuality ?? null,
+    cost_disclaimer: COST_DISCLAIMER
+  };
+}
+
 async function extractRequirements(request) {
   let input;
   try {
@@ -475,6 +533,19 @@ async function createMathematicalModel(request) {
   return json(formulateProcurementModel(input));
 }
 
+async function createBudgetPresentation(request) {
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: 'Envie um JSON válido.' }, { status: 400 });
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
+  }
+  return json(generateBudgetPresentation(input));
+}
+
 async function createAnalysis(request, env) {
   let input;
   try {
@@ -521,6 +592,7 @@ async function handleApi(request, env) {
   if (pathname === '/api/attribute-mappings' && request.method === 'POST') return createAttributeMapping(request);
   if (pathname === '/api/candidate-evaluations' && request.method === 'POST') return createCandidateEvaluations(request);
   if (pathname === '/api/mathematical-models' && request.method === 'POST') return createMathematicalModel(request);
+  if (pathname === '/api/budget-presentations' && request.method === 'POST') return createBudgetPresentation(request);
   if (pathname === '/api/analyses' && request.method === 'POST') return createAnalysis(request, env);
   return json({ error: 'Rota não encontrada.' }, { status: 404 });
 }

@@ -146,3 +146,30 @@ na lista de incertezas sem provocar uma rejeição automática:
 
 A resposta segue o contrato `{ "evaluations": [...] }`, incluindo pontuação de 0 a 100,
 incertezas remanescentes e motivos objetivos de rejeição.
+
+## Formulação matemática
+
+`POST /api/mathematical-models` transforma requisitos, candidatos válidos e regras de negócio
+em uma especificação simbólica para o motor matemático. O endpoint classifica o problema entre
+LP, MILP, INTEGER, KNAPSACK, ASSIGNMENT, TRANSPORTATION, MULTIOBJECTIVE, MCDA e
+MCDA_PLUS_MILP, mas não executa cálculos nem procura uma solução:
+
+```json
+{
+  "requirements": { "quantity": 20, "budget_limit": 120000 },
+  "valid_candidates": [
+    { "id": "fornecedor-a", "unit_cost": 5000, "capacity": 20 }
+  ],
+  "business_rules": [
+    { "id": "one_supplier", "type": "cardinality", "expression": "sum_i(x_i) = 1" }
+  ],
+  "criteria": [
+    { "name": "cost", "direction": "min", "weight": 0.7 },
+    { "name": "quality", "direction": "max", "weight": 0.3 }
+  ]
+}
+```
+
+A resposta contém apenas o tipo do modelo, objetivo, variáveis de decisão, restrições,
+critérios, recomendação de solver e parâmetros ainda ausentes. Expressões são templates
+simbólicos e valores não informados nunca são estimados.

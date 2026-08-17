@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { evaluateCandidates, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
+import worker, { evaluateCandidates, formulateProcurementModel, generateSearchQueries, normalizeAttributes, structureRequirements } from '../src/worker.js';
 
 function environment() {
   const rows = [];
@@ -256,4 +256,48 @@ test('candidate evaluation endpoint returns the stable output contract', async (
       uncertain_attributes: [], rejection_reasons: []
     }]
   });
+});
+
+test('formulates a procurement MILP with MCDA criteria without solving it', () => {
+  const model = formulateProcurementModel({
+    requirements: { quantity: 20, budget_limit: 120000 },
+    valid_candidates: [
+      { id: 'a', unit_cost: 5000, capacity: 20 },
+      { id: 'b', unit_cost: 4800, capacity: 12 }
+    ],
+    business_rules: [{ id: 'one_supplier', type: 'cardinality', expression: 'sum_i(x_i) = 1' }],
+    criteria: [
+      { name: 'cost', direction: 'min', weight: 0.6 },
+      { name: 'quality', direction: 'max', weight: 0.4 }
+    ]
+  });
+
+  assert.equal(model.model_type, 'MCDA_PLUS_MILP');
+  assert.equal(model.objective.direction, 'min');
+  assert.deepEqual(model.decision_variables.map(variable => variable.name), ['x_i', 'q_i']);
+  assert.deepEqual(model.constraints.map(constraint => constraint.id), ['demand', 'budget', 'selection_link', 'one_supplier']);
+  assert.deepEqual(model.criteria, [
+    { name: 'cost', direction: 'min', weight: 0.6 },
+    { name: 'quality', direction: 'max', weight: 0.4 }
+  ]);
+  assert.deepEqual(model.missing_parameters, []);
+  assert.equal('solution' in model, false);
+});
+
+test('mathematical model endpoint reports missing symbolic parameters', async () => {
+  const response = await worker.fetch(new Request('https://example.com/api/mathematical-models', {
+    method: 'POST',
+    body: JSON.stringify({ requirements: {}, valid_candidates: [], business_rules: [] })
+  }), environment());
+  const model = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(model.model_type, 'LP');
+  assert.deepEqual(model.missing_parameters, [
+    'valid_candidates', 'required_quantity_or_selection_cardinality', 'candidate_costs'
+  ]);
+
+  const invalid = await worker.fetch(new Request('https://example.com/api/mathematical-models', {
+    method: 'POST', body: '{'
+  }), environment());
+  assert.equal(invalid.status, 400);
 });

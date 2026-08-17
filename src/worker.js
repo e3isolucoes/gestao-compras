@@ -316,6 +316,100 @@ export function evaluateCandidates(input = {}) {
   };
 }
 
+function recordList(value) {
+  if (Array.isArray(value)) return value.filter(item => item && typeof item === 'object' && !Array.isArray(item));
+  if (value && typeof value === 'object') return Object.entries(value).map(([id, item]) =>
+    item && typeof item === 'object' && !Array.isArray(item) ? { id, ...item } : { id, value: item }
+  );
+  return [];
+}
+
+function hasText(value, pattern) {
+  try { return pattern.test(JSON.stringify(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()); }
+  catch { return false; }
+}
+
+function criterionList(input) {
+  const sources = [input.criteria, input.requirements?.criteria, input.business_rules?.criteria];
+  return recordList(sources.find(Array.isArray) ?? []).flatMap((criterion, index) => {
+    const name = textValue(criterion.name ?? criterion.nome ?? criterion.id) || `criterion_${index + 1}`;
+    const rawDirection = textValue(criterion.direction ?? criterion.direcao).toLowerCase();
+    const direction = /max|maior|benef/.test(rawDirection) ? 'max' : 'min';
+    const rawWeight = criterion.weight ?? criterion.peso;
+    return [{ name, direction, weight: typeof rawWeight === 'number' ? rawWeight : null }];
+  });
+}
+
+/** Builds a symbolic model only; it deliberately neither estimates parameters nor solves it. */
+export function formulateProcurementModel(input = {}) {
+  const requirements = input.requirements && typeof input.requirements === 'object' && !Array.isArray(input.requirements)
+    ? input.requirements : {};
+  const candidates = recordList(input.valid_candidates ?? input.candidates);
+  const rules = Array.isArray(input.business_rules) ? input.business_rules : recordList(input.business_rules);
+  const criteria = criterionList(input);
+  const corpus = { requirements, candidates, rules };
+  const hasQuantity = requirements.quantity !== undefined && requirements.quantity !== null && requirements.quantity !== '';
+  const hasBudget = requirements.budget_limit !== undefined || requirements.budget !== undefined;
+  const hasCapacity = candidates.some(candidate => candidate.capacity !== undefined || candidate.max_quantity !== undefined);
+  const transportation = hasText(corpus, /origin|origem/) && hasText(corpus, /destination|destino/);
+  const assignment = !transportation && hasText(corpus, /assignment|alocacao|designacao/) && hasText(corpus, /recurso|resource|fornecedor/);
+  const explicitMultiobjective = hasText(requirements, /multiobjective|multiobjetivo|pareto/);
+  const discrete = candidates.length > 0 || hasText(corpus, /binary|binari|integer|inteir|selecion/);
+  const mixed = discrete && (hasQuantity || hasCapacity || hasText(corpus, /continuous|continu/));
+  let model_type = 'LP';
+  if (transportation) model_type = 'TRANSPORTATION';
+  else if (assignment) model_type = 'ASSIGNMENT';
+  else if (criteria.length && discrete) model_type = 'MCDA_PLUS_MILP';
+  else if (criteria.length) model_type = 'MCDA';
+  else if (explicitMultiobjective) model_type = 'MULTIOBJECTIVE';
+  else if (discrete && hasBudget && !hasQuantity && !hasCapacity) model_type = 'KNAPSACK';
+  else if (mixed) model_type = 'MILP';
+  else if (discrete) model_type = 'INTEGER';
+
+  const decision_variables = [];
+  if (transportation) {
+    decision_variables.push({ name: 'q_o,d', domain: 'continuous_nonnegative', description: 'Quantidade enviada da origem o ao destino d.' });
+  } else {
+    if (candidates.length || discrete) decision_variables.push({ name: 'x_i', domain: 'binary', description: '1 se o candidato i for selecionado; 0 caso contrário.' });
+    if (hasQuantity || hasCapacity) decision_variables.push({ name: 'q_i', domain: hasText(requirements, /indivis|integer|inteir/) ? 'integer_nonnegative' : 'continuous_nonnegative', description: 'Quantidade adquirida do candidato i.' });
+  }
+
+  const constraints = [];
+  if (hasQuantity) constraints.push({ id: 'demand', type: 'demand_fulfillment', expression_template: 'sum_i(q_i) >= Q_required', parameters: { Q_required: requirements.quantity } });
+  if (hasBudget) constraints.push({ id: 'budget', type: 'budget_limit', expression_template: 'sum_i(unit_cost_i * q_i + fixed_cost_i * x_i) <= B_max', parameters: { B_max: requirements.budget_limit ?? requirements.budget } });
+  if (candidates.length && !transportation) constraints.push({ id: 'selection_link', type: 'variable_linking', expression_template: '0 <= q_i <= capacity_i * x_i, for all i in I', parameters: { candidate_set: candidates.map((candidate, index) => candidate.id ?? candidate.candidate_id ?? `candidate_${index + 1}`) } });
+  if (transportation) constraints.push(
+    { id: 'origin_capacity', type: 'capacity', expression_template: 'sum_d(q_o,d) <= supply_o, for all o in O', parameters: {} },
+    { id: 'destination_demand', type: 'demand_fulfillment', expression_template: 'sum_o(q_o,d) >= demand_d, for all d in D', parameters: {} }
+  );
+  rules.forEach((rule, index) => constraints.push({
+    id: textValue(rule.id) || `business_rule_${index + 1}`,
+    type: textValue(rule.type) || 'business_rule',
+    expression_template: textValue(rule.expression_template ?? rule.expression) || `formalize(business_rule_${index + 1})`,
+    parameters: rule.parameters && typeof rule.parameters === 'object' ? rule.parameters : { source_rule: rule }
+  }));
+
+  const missing = [];
+  if (!candidates.length) missing.push('valid_candidates');
+  if (!hasQuantity && !assignment) missing.push('required_quantity_or_selection_cardinality');
+  if (!candidates.length || !candidates.every(candidate => candidate.unit_cost !== undefined || candidate.cost !== undefined || candidate.price !== undefined)) missing.push('candidate_costs');
+  if ((hasQuantity || hasCapacity) && !candidates.every(candidate => candidate.capacity !== undefined || candidate.max_quantity !== undefined)) missing.push('candidate_capacities');
+  if (criteria.some(criterion => criterion.weight === null)) missing.push('criteria_weights');
+  if (transportation) missing.push('origin_supply', 'destination_demand', 'route_costs');
+
+  const components = [{ name: 'total_cost', expression_template: transportation ? 'sum_o,d(route_cost_o,d * q_o,d)' : 'sum_i(unit_cost_i * q_i + fixed_cost_i * x_i)', weight: criteria.length ? null : 1 }];
+  criteria.forEach(criterion => components.push({ name: criterion.name, expression_template: `aggregate_${criterion.name}(x_i, q_i)`, weight: criterion.weight }));
+  return {
+    model_type,
+    objective: { direction: criteria.some(criterion => criterion.direction === 'max') && !criteria.some(criterion => criterion.direction === 'min') ? 'max' : 'min', components },
+    decision_variables,
+    constraints,
+    criteria,
+    solver_recommendation: model_type === 'MCDA' ? 'Motor MCDA (por exemplo, weighted sum ou TOPSIS), após definição de pesos e normalização.' : model_type === 'LP' ? 'Solver de programação linear.' : model_type === 'TRANSPORTATION' ? 'Solver de fluxo de custo mínimo ou programação linear.' : 'Solver de programação inteira mista com suporte a variáveis binárias.',
+    missing_parameters: [...new Set(missing)]
+  };
+}
+
 async function extractRequirements(request) {
   let input;
   try {
@@ -368,6 +462,19 @@ async function createCandidateEvaluations(request) {
   return json(evaluateCandidates(input));
 }
 
+async function createMathematicalModel(request) {
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: 'Envie um JSON válido.' }, { status: 400 });
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
+  }
+  return json(formulateProcurementModel(input));
+}
+
 async function createAnalysis(request, env) {
   let input;
   try {
@@ -413,6 +520,7 @@ async function handleApi(request, env) {
   if (pathname === '/api/search-queries' && request.method === 'POST') return createSearchQueries(request);
   if (pathname === '/api/attribute-mappings' && request.method === 'POST') return createAttributeMapping(request);
   if (pathname === '/api/candidate-evaluations' && request.method === 'POST') return createCandidateEvaluations(request);
+  if (pathname === '/api/mathematical-models' && request.method === 'POST') return createMathematicalModel(request);
   if (pathname === '/api/analyses' && request.method === 'POST') return createAnalysis(request, env);
   return json({ error: 'Rota não encontrada.' }, { status: 404 });
 }

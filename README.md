@@ -173,3 +173,11 @@ MCDA_PLUS_MILP, mas não executa cálculos nem procura uma solução:
 A resposta contém apenas o tipo do modelo, objetivo, variáveis de decisão, restrições,
 critérios, recomendação de solver e parâmetros ainda ausentes. Expressões são templates
 simbólicos e valores não informados nunca são estimados.
+
+## Comparação de sensibilidade
+
+`POST /api/sensitivity-comparisons` compara os resultados já calculados para os cenários
+`economic`, `balanced`, `performance` e `low_risk`. O endpoint apenas consolida vencedores e
+variáveis críticas fornecidas: não recalcula pontuações nem executa o solver. A resposta informa
+o vencedor de cada cenário, estabilidade, sensibilidade (`LOW`, `MEDIUM` ou `HIGH`) e um resumo
+de até 60 palavras.

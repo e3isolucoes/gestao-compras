@@ -3,6 +3,7 @@ const MAX_LENGTH = 5000;
 
 const REQUIREMENT_FIELDS = ['quantity', 'unit', 'location', 'deadline', 'budget_limit'];
 const MAX_SEARCH_QUERIES = 5;
+const SENSITIVITY_SCENARIOS = ['economic', 'balanced', 'performance', 'low_risk'];
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers);
@@ -410,6 +411,48 @@ export function formulateProcurementModel(input = {}) {
   };
 }
 
+function scenarioResult(results, scenario) {
+  if (Array.isArray(results)) {
+    return results.find(item => item && comparableField(item.scenario ?? item.name ?? item.id) === comparableField(scenario)) ?? {};
+  }
+  return results && typeof results === 'object' && !Array.isArray(results) ? results[scenario] ?? {} : {};
+}
+
+function scenarioWinner(result) {
+  if (typeof result === 'string' || typeof result === 'number') return textValue(String(result));
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return '';
+  const value = result.winner ?? result.winning_alternative ?? result.selected_alternative
+    ?? result.recommended_alternative ?? result.best_candidate ?? result.candidate_id;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return textValue(String(value.name ?? value.id ?? value.candidate_id ?? ''));
+  }
+  return value === undefined || value === null ? '' : textValue(String(value));
+}
+
+/** Compares solver outputs already supplied; it never reruns or derives scenario scores. */
+export function compareSensitivityResults(input = {}) {
+  const results = input.solver_sensitivity_results ?? input.scenarios ?? input;
+  const winner_by_scenario = Object.fromEntries(SENSITIVITY_SCENARIOS.map(scenario => [
+    scenario, scenarioWinner(scenarioResult(results, scenario))
+  ]));
+  const supplied = Object.values(winner_by_scenario).filter(Boolean);
+  const uniqueWinners = new Set(supplied.map(comparableField));
+  const stable_winner = supplied.length === SENSITIVITY_SCENARIOS.length && uniqueWinners.size === 1;
+  const critical_variables = [...new Set(SENSITIVITY_SCENARIOS.flatMap(scenario => {
+    const result = scenarioResult(results, scenario);
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
+    return stringList(result.critical_variables ?? result.sensitive_variables ?? result.binding_variables);
+  }))];
+  const decision_sensitivity = stable_winner ? 'LOW' : uniqueWinners.size <= 2 && supplied.length === SENSITIVITY_SCENARIOS.length ? 'MEDIUM' : 'HIGH';
+  const fullSummary = stable_winner
+    ? `${supplied[0]} vence nos quatro cenários; a decisão é estável. Variáveis críticas informadas: ${critical_variables.length ? critical_variables.join(', ') : 'nenhuma'}.`
+    : `${uniqueWinners.size || 'Nenhum'} vencedor(es) distinto(s) nos cenários informados; sensibilidade ${decision_sensitivity}. Variáveis críticas informadas: ${critical_variables.length ? critical_variables.join(', ') : 'nenhuma'}.`;
+  const summaryWords = fullSummary.split(/\s+/);
+  const summary = summaryWords.length <= 60 ? fullSummary : `${summaryWords.slice(0, 59).join(' ')}…`;
+
+  return { stable_winner, winner_by_scenario, critical_variables, decision_sensitivity, summary };
+}
+
 async function extractRequirements(request) {
   let input;
   try {
@@ -475,6 +518,19 @@ async function createMathematicalModel(request) {
   return json(formulateProcurementModel(input));
 }
 
+async function createSensitivityComparison(request) {
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: 'Envie um JSON válido.' }, { status: 400 });
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return json({ error: 'Envie um objeto JSON.' }, { status: 400 });
+  }
+  return json(compareSensitivityResults(input));
+}
+
 async function createAnalysis(request, env) {
   let input;
   try {
@@ -521,6 +577,7 @@ async function handleApi(request, env) {
   if (pathname === '/api/attribute-mappings' && request.method === 'POST') return createAttributeMapping(request);
   if (pathname === '/api/candidate-evaluations' && request.method === 'POST') return createCandidateEvaluations(request);
   if (pathname === '/api/mathematical-models' && request.method === 'POST') return createMathematicalModel(request);
+  if (pathname === '/api/sensitivity-comparisons' && request.method === 'POST') return createSensitivityComparison(request);
   if (pathname === '/api/analyses' && request.method === 'POST') return createAnalysis(request, env);
   return json({ error: 'Rota não encontrada.' }, { status: 404 });
 }
